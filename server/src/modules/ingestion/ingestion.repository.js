@@ -1,4 +1,5 @@
 import pool from "../../config/db.js";
+import { normalizeTerm } from "../../utils/normalize.js";
 
 export async function saveRelease(system, version, concepts) {
   const client = await pool.connect();
@@ -15,9 +16,16 @@ export async function saveRelease(system, version, concepts) {
 
     for (const c of concepts) {
       await client.query(
-        `INSERT INTO terminology_concepts (release_id, code, term, description, tradition)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [releaseId, c.code, c.term, c.description, c.tradition ?? null],
+        `INSERT INTO terminology_concepts (release_id, code, term, normalized_term, description, tradition)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          releaseId,
+          c.code,
+          c.term,
+          normalizeTerm(c.term),
+          c.description,
+          c.tradition ?? null,
+        ],
       );
     }
 
