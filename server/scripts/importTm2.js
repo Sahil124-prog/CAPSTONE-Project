@@ -3,7 +3,7 @@ import { fetchTm2Concepts } from "../src/modules/ingestion/icdTm2.service.js";
 import { saveRelease } from "../src/modules/ingestion/ingestion.repository.js";
 import pool from "../src/config/db.js";
 
-
+import "dotenv/config";
 await pool.query("SELECT 1"); // fail fast if the DB is unreachable
 console.log("Database connection OK");
 
