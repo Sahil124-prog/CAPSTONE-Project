@@ -1,27 +1,18 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Landing from "./Landing";
+import Dashboard from "./Dashboard";
+import Login from "./Login";
+import AdminDashboard from "./AdminDashboard"; // Import the new portal
 
-
-  
-
-
-function App() {
-  const [status, setStatus] = useState("checking...");
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus("server not reachable"));
-  }, []);
-
+export default function App() {
   return (
-    <main>
-      <h1>AyuLink</h1>
-      <p>NAMASTE to ICD-11 TM2 mapping: clinician review dashboard</p>
-      <p>Server status: {status}</p>
-
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} /> {/* Add Route */}
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;

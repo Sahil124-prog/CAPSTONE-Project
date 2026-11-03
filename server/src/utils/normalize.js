@@ -1,9 +1,10 @@
-export function normalizeTerm(term) {
-  if (!term) return null;
-  return term
+export function normalizeTerm(text) {
+  if (!text || typeof text !== "string") return "";
+  return text
+    .normalize("NFD") // Decompose combined graphemes
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritical marks
     .toLowerCase()
-    .replace(/[^\w\s]/g, " ") // replace punctuation with space
-    .replace(/\s+/g, " ") // collapse multiple spaces
+    .replace(/[^\p{L}\p{N}\s]/gu, " ") // Keep Unicode letters/numbers, replace rest with space
+    .replace(/\s+/g, " ") // Collapse multiple spaces
     .trim();
 }
-
