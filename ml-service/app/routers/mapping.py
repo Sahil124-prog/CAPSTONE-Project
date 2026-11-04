@@ -145,3 +145,35 @@ def get_unreviewed_priority():
     finally:
         cur.close()
         conn.close()
+        
+@router.post("/api/review")
+def submit_review(feedback: ReviewFeedback):
+    """
+    Receives APPROVED or REJECTED feedback from the Admin/Expert UI 
+    and saves it to the mapping_reviews table.
+    """
+    conn = get_db_connection()
+    conn.autocommit = True
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO mapping_reviews 
+            (namaste_term, icd11_code, icd11_term, tradition, confidence_score, status)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            feedback.namaste_term,
+            feedback.icd11_code,
+            feedback.icd11_term,
+            feedback.tradition,
+            feedback.confidence_score,
+            feedback.status
+        ))
+        return {"message": f"Successfully recorded {feedback.status} for {feedback.namaste_term}"}
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to save review: {e}")
+        raise HTTPException(status_code=500, detail="Database insertion failed")
+    finally:
+        cur.close()
+        conn.close()
+        

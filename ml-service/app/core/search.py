@@ -13,7 +13,8 @@ def get_db_connection():
 
 def search_similar_icd11(query_term: str, top_k: int = 5):
     """
-    Embeds the input term and finds the closest ICD-11 TM2 matches using pgvector cosine distance.
+    Embeds the input term and finds the closest ICD-11 TM2 matches using pgvector cosine distance,
+    while actively filtering out any codes the experts have previously rejected for this term.
     """
     query_vector = generate_embedding(query_term)
     
@@ -21,10 +22,15 @@ def search_similar_icd11(query_term: str, top_k: int = 5):
     cur = conn.cursor()
     
     try:
-        # AS MATERIALIZED forces PostgreSQL to isolate the 648 ICD-11 codes first,
-        # preventing the query optimizer from pushing down the vector index scan.
+        # 1. Fetch rejections for this term
+        # 2. Materialize the TM2 codes
+        # 3. Calculate distance ONLY for non-rejected codes
         sql = """
-            WITH icd_targets AS MATERIALIZED (
+            WITH rejected_codes AS (
+                SELECT icd11_code FROM mapping_reviews 
+                WHERE namaste_term ILIKE %s AND status = 'REJECTED'
+            ),
+            icd_targets AS MATERIALIZED (
                 SELECT c.code, c.term, c.embedding 
                 FROM terminology_concepts c
                 JOIN terminology_releases r ON c.release_id = r.id
@@ -32,10 +38,13 @@ def search_similar_icd11(query_term: str, top_k: int = 5):
             )
             SELECT code, term, 1 - (embedding <=> %s::vector) AS similarity 
             FROM icd_targets
+            WHERE code NOT IN (SELECT icd11_code FROM rejected_codes)
             ORDER BY embedding <=> %s::vector 
             LIMIT %s;
         """
-        cur.execute(sql, (str(query_vector), str(query_vector), top_k))
+        
+        # Pass the original search term alongside the vectors
+        cur.execute(sql, (query_term, str(query_vector), str(query_vector), top_k))
         results = cur.fetchall()
         
         candidates = []
