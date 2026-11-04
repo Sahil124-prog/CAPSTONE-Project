@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const [term, setTerm] = useState("");
+  // --- STATE CONSOLIDATED ---
+  const [searchTerm, setSearchTerm] = useState("");
   const [tradition, setTradition] = useState("Ayurveda");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,22 +35,28 @@ export default function Dashboard() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!term.trim()) return;
+    if (!searchTerm.trim()) return;
 
     setLoading(true);
-    setSearched(true);
-    setReviewedItems(new Set());
+    setSearched(true); // Tell the UI to show results
 
     try {
+      // Fetch directly from the Python backend
       const response = await fetch("http://127.0.0.1:8000/api/map", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ term, tradition }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          term: searchTerm,
+          tradition: tradition, // Fixed variable name
+        }),
       });
+
       const data = await response.json();
       setResults(data.results || []);
     } catch (error) {
-      console.error("Mapping failed:", error);
+      console.error("Search failed:", error);
     } finally {
       setLoading(false);
     }
@@ -61,7 +68,7 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          namaste_term: term,
+          namaste_term: searchTerm, // Fixed variable name
           icd11_code: result.code,
           icd11_term: result.term,
           tradition: tradition,
@@ -155,8 +162,8 @@ export default function Dashboard() {
               </svg>
               <input
                 type="text"
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
+                value={searchTerm} // Wired up to the correct state
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search NAMASTE term (e.g., vatavyadhi)..."
                 className="w-full bg-transparent border-none px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 text-lg font-medium"
               />

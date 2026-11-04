@@ -3,29 +3,38 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function AdminDashboard() {
   const [reviews, setReviews] = useState([]);
+  const [priorityQueue, setPriorityQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const role = localStorage.getItem("ayulink_active_role");
     if (role !== "Admin") {
-      navigate("/dashboard"); // Kick non-admins back to the standard dashboard
+      navigate("/dashboard");
       return;
     }
 
-    const fetchReviews = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/reviews");
-        const data = await response.json();
-        setReviews(data.reviews || []);
+        // Fetch both datasets concurrently
+        const [revRes, prioRes] = await Promise.all([
+          fetch("http://127.0.0.1:8000/api/reviews"),
+          fetch("http://127.0.0.1:8000/api/priority/unreviewed"),
+        ]);
+
+        const revData = await revRes.json();
+        const prioData = await prioRes.json();
+
+        setReviews(revData.reviews || []);
+        setPriorityQueue(prioData.unreviewed || []);
       } catch (error) {
-        console.error("Failed to fetch reviews:", error);
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReviews();
+    fetchData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -137,13 +146,71 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Reviews Data Table */}
+        {/* Priority Review Queue (Phase 5) */}
+        <section className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden flex flex-col">
+          <div className="px-8 py-5 border-b border-amber-100 bg-amber-50/50 flex justify-between items-center">
+            <h3 className="font-bold text-amber-900">
+              Priority Review Queue (Top Unmapped Searches)
+            </h3>
+            <span className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-200">
+              Phase 5 Active
+            </span>
+          </div>
+
+          {loading ? (
+            <div className="p-12 text-center text-slate-500 font-medium">
+              Loading queue...
+            </div>
+          ) : priorityQueue.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 font-medium">
+              No pending terms in the queue. All caught up!
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-xs border-b border-slate-200">
+                  <tr>
+                    <th className="px-8 py-4">Priority Rank</th>
+                    <th className="px-8 py-4">NAMASTE Term</th>
+                    <th className="px-8 py-4">Tradition</th>
+                    <th className="px-8 py-4 text-right">Search Volume</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {priorityQueue.map((item, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-amber-50/30 transition-colors"
+                    >
+                      <td className="px-8 py-4 font-bold text-slate-400">
+                        #{idx + 1}
+                      </td>
+                      <td className="px-8 py-4 font-bold text-slate-900">
+                        {item.term}
+                      </td>
+                      <td className="px-8 py-4 text-slate-600 font-medium">
+                        {item.tradition}
+                      </td>
+                      <td className="px-8 py-4 text-right">
+                        <span className="bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-100">
+                          {item.query_count} queries
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* Reviews Data Table (Gold Set) */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
           <div className="px-8 py-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
             <h3 className="font-bold text-slate-800">Recent Expert Feedback</h3>
             <button
               onClick={handleExportCSV}
-              className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-lg transition-colors"
+              className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-lg transition-colors border border-blue-100"
             >
               Export to CSV
             </button>

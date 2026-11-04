@@ -4,11 +4,11 @@ from app.embeddings.embedder import generate_embedding
 
 def get_db_connection():
     return psycopg2.connect(
-        dbname=os.getenv("POSTGRES_DB", "ayulink"),
-        user=os.getenv("POSTGRES_USER", "ayulink"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-        host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
-        port=os.getenv("POSTGRES_PORT", "5433")
+        host=os.environ.get("DB_HOST", "127.0.0.1"),
+        port=os.environ.get("DB_PORT", "5433"),
+        dbname=os.environ.get("DB_NAME", "ayulink"),
+        user=os.environ.get("DB_USER", "ayulink"),
+        password=os.environ.get("DB_PASSWORD", "change_me")  # Updated password here
     )
 
 def search_similar_icd11(query_term: str, top_k: int = 5):
