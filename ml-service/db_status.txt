@@ -1,1 +1,1 @@
-SUCCESS: Successfully saved 'pitta' to the database!
+SUCCESS: Successfully saved 'vata' to the database!

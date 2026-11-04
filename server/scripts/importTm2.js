@@ -1,9 +1,19 @@
-import { whoGet } from "../src/clients/whoIcdClient.js";
-import { fetchTm2Concepts } from "../src/modules/ingestion/icdTm2.service.js";
-import { saveRelease } from "../src/modules/ingestion/ingestion.repository.js";
-import pool from "../src/config/db.js";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-import "dotenv/config";
+// 1. Explicitly load the .env file from the root folder FIRST
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, "../../.env") });
+
+// 2. Dynamically import the database and services AFTER the environment is loaded
+const { whoGet } = await import("../src/clients/whoIcdClient.js");
+const { fetchTm2Concepts } =
+  await import("../src/modules/ingestion/icdTm2.service.js");
+const { saveRelease } =
+  await import("../src/modules/ingestion/ingestion.repository.js");
+const { default: pool } = await import("../src/config/db.js");
+
 await pool.query("SELECT 1"); // fail fast if the DB is unreachable
 console.log("Database connection OK");
 
@@ -20,7 +30,6 @@ if (existing.rows.length > 0) {
   await pool.end();
   process.exit(0);
 }
-
 
 console.log(`Fetching TM2 codes for release ${version}...`);
 const concepts = await fetchTm2Concepts(root.latestRelease);

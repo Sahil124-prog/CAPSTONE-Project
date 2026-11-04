@@ -1,10 +1,10 @@
-export function normalizeTerm(text) {
-  if (!text || typeof text !== "string") return "";
-  return text
-    .normalize("NFD") // Decompose combined graphemes
-    .replace(/[\u0300-\u036f]/g, "") // Remove diacritical marks
+export function normalizeTerm(term) {
+  if (!term) return null;
+  return term
+    .normalize("NFD") // Decompose accented chars
+    .replace(/[\u0300-\u036f]/g, "") // Strip combining diacritics safely
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ") // Keep Unicode letters/numbers, replace rest with space
-    .replace(/\s+/g, " ") // Collapse multiple spaces
+    .replace(/[^\p{L}\p{N}\s]/gu, " ") // Unicode-aware: keeps all global letters + digits
+    .replace(/\s+/g, " ")
     .trim();
 }
