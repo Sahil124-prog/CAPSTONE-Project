@@ -56,6 +56,9 @@ def map_term(request: MapRequest):
         
         trad = getattr(request, "tradition", "Ayurveda")
         
+        # Pass tradition down to the search engine for the scoring formula
+        candidates = search_similar_icd11(request.term, tradition=trad, top_k=5)
+        
         cur.execute("""
             INSERT INTO query_log (search_term, tradition, matched_code, confidence)
             VALUES (%s, %s, %s, %s)
