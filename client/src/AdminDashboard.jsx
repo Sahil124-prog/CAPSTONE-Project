@@ -1,9 +1,27 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 export default function AdminDashboard() {
   const [reviews, setReviews] = useState([]);
   const [priorityQueue, setPriorityQueue] = useState([]);
+  const [stats, setStats] = useState({
+    total_namaste_terms: 0,
+    confirmed_mappings: 0,
+    coverage_pct: "0.0",
+    total_queries: 0,
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -16,17 +34,24 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        // Fetch both datasets concurrently
-        const [revRes, prioRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/reviews"),
-          fetch("http://127.0.0.1:8000/api/priority/unreviewed"),
+        // Fetch Python ML data AND Node.js Audit Stats concurrently
+        const [revRes, prioRes, statsRes] = await Promise.all([
+          fetch("http://127.0.0.1:8000/api/reviews").catch(() => null),
+          fetch("http://127.0.0.1:8000/api/priority/unreviewed").catch(
+            () => null,
+          ),
+          fetch("http://localhost:5002/api/audit/stats").catch(() => null),
         ]);
 
-        const revData = await revRes.json();
-        const prioData = await prioRes.json();
+        const revData = revRes ? await revRes.json() : { reviews: [] };
+        const prioData = prioRes ? await prioRes.json() : { unreviewed: [] };
+        const statsData = statsRes ? await statsRes.json() : null;
 
         setReviews(revData.reviews || []);
         setPriorityQueue(prioData.unreviewed || []);
+        if (statsData && !statsData.error) {
+          setStats(statsData);
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {
@@ -72,12 +97,23 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // Calculate Metrics
-  const totalReviews = reviews.length;
-  const approved = reviews.filter((r) => r.status === "APPROVED").length;
-  const rejected = reviews.filter((r) => r.status === "REJECTED").length;
-  const precisionRate =
-    totalReviews > 0 ? ((approved / totalReviews) * 100).toFixed(1) : 0;
+  // Recharts Data Prep
+  const approvedCount = reviews.filter((r) => r.status === "APPROVED").length;
+  const rejectedCount = reviews.filter((r) => r.status === "REJECTED").length;
+
+  const coverageData = [
+    { name: "Mapped", value: stats.confirmed_mappings },
+    {
+      name: "Unmapped",
+      value: stats.total_namaste_terms - stats.confirmed_mappings,
+    },
+  ];
+  const COLORS = ["#10b981", "#f1f5f9"];
+
+  const reviewChartData = [
+    { name: "Approved", count: approvedCount, fill: "#10b981" },
+    { name: "Rejected", count: rejectedCount, fill: "#f43f5e" },
+  ];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans p-4 md:p-8">
@@ -93,15 +129,15 @@ export default function AdminDashboard() {
                 ← Back to Mapping Engine
               </Link>
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold uppercase tracking-wide">
-                Admin Portal
+                Phase 9 Admin Portal
               </div>
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
-              Gold Set Curation
+              AyuLink Analytics
             </h1>
             <p className="text-slate-500 font-medium">
-              Evaluate expert feedback and generate dataset statistics for
-              capstone metrics.
+              Live mapping progress, gold set metrics, and active learning
+              feedback loop.
             </p>
           </div>
           <button
@@ -112,51 +148,125 @@ export default function AdminDashboard() {
           </button>
         </header>
 
-        {/* Metrics Overview */}
+        {/* Phase 9 Metrics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">
-              Total Mappings Reviewed
+              Total System Queries
             </div>
             <div className="text-4xl font-black text-slate-900">
-              {totalReviews}
+              {stats.total_queries}
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-emerald-600 uppercase tracking-wider mb-1">
-              Approved (Gold Set)
+              Gold Set (Approved)
             </div>
             <div className="text-4xl font-black text-emerald-700">
-              {approved}
+              {approvedCount}
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-rose-600 uppercase tracking-wider mb-1">
-              Rejected (Recalibrate)
+              Rejected (Filtered)
             </div>
-            <div className="text-4xl font-black text-rose-700">{rejected}</div>
+            <div className="text-4xl font-black text-rose-700">
+              {rejectedCount}
+            </div>
           </div>
           <div className="bg-slate-900 p-6 rounded-2xl shadow-sm flex flex-col justify-center text-white">
             <div className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">
-              System Precision
+              DB Coverage
             </div>
             <div className="text-4xl font-black text-white">
-              {precisionRate}%
+              {stats.coverage_pct}%
             </div>
           </div>
         </div>
 
-        {/* Priority Review Queue (Phase 5) */}
+        {/* Phase 9 Recharts Visualizations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Coverage Pie Chart */}
+          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-4">
+              Overall Database Coverage
+            </h3>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={coverageData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {coverageData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-center text-sm font-medium text-slate-500">
+              {stats.confirmed_mappings} out of {stats.total_namaste_terms}{" "}
+              NAMASTE terms successfully mapped to ICD-11
+            </div>
+          </section>
+
+          {/* Expert Feedback Bar Chart */}
+          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-4">
+              Expert Review Distribution
+            </h3>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={reviewChartData}
+                  margin={{ top: 20, right: 30, left: -20, bottom: 5 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#64748b", fontWeight: 600 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#64748b" }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f8fafc" }}
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={60} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </div>
+
+        {/* Priority Review Queue */}
         <section className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden flex flex-col">
           <div className="px-8 py-5 border-b border-amber-100 bg-amber-50/50 flex justify-between items-center">
             <h3 className="font-bold text-amber-900">
               Priority Review Queue (Top Unmapped Searches)
             </h3>
-            <span className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-200">
-              Phase 5 Active
-            </span>
           </div>
-
           {loading ? (
             <div className="p-12 text-center text-slate-500 font-medium">
               Loading queue...
@@ -172,7 +282,6 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-8 py-4">Priority Rank</th>
                     <th className="px-8 py-4">NAMASTE Term</th>
-                    <th className="px-8 py-4">Tradition</th>
                     <th className="px-8 py-4 text-right">Search Volume</th>
                   </tr>
                 </thead>
@@ -188,9 +297,6 @@ export default function AdminDashboard() {
                       <td className="px-8 py-4 font-bold text-slate-900">
                         {item.term}
                       </td>
-                      <td className="px-8 py-4 text-slate-600 font-medium">
-                        {item.tradition}
-                      </td>
                       <td className="px-8 py-4 text-right">
                         <span className="bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-100">
                           {item.query_count} queries
@@ -205,7 +311,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Reviews Data Table (Gold Set) */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mb-12">
           <div className="px-8 py-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
             <h3 className="font-bold text-slate-800">Recent Expert Feedback</h3>
             <button
@@ -215,7 +321,6 @@ export default function AdminDashboard() {
               Export to CSV
             </button>
           </div>
-
           {loading ? (
             <div className="p-12 text-center text-slate-500 font-medium">
               Loading dataset...
@@ -231,7 +336,6 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-8 py-4">NAMASTE Term</th>
                     <th className="px-8 py-4">Target ICD-11</th>
-                    <th className="px-8 py-4">Tradition</th>
                     <th className="px-8 py-4">Model Confidence</th>
                     <th className="px-8 py-4 text-right">Expert Status</th>
                   </tr>
@@ -255,9 +359,6 @@ export default function AdminDashboard() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-8 py-4 text-slate-600 font-medium">
-                        {r.tradition}
-                      </td>
                       <td className="px-8 py-4">
                         <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded border border-slate-200">
                           {(r.confidence_score * 100).toFixed(1)}%
@@ -265,11 +366,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-8 py-4 text-right">
                         <span
-                          className={`inline-flex font-bold px-3 py-1 rounded-full text-xs border ${
-                            r.status === "APPROVED"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-rose-50 text-rose-700 border-rose-200"
-                          }`}
+                          className={`inline-flex font-bold px-3 py-1 rounded-full text-xs border ${r.status === "APPROVED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}
                         >
                           {r.status}
                         </span>
@@ -285,3 +382,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+
