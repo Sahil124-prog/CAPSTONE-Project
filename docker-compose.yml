@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -16,6 +18,53 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  ml-service:
+    build:
+      context: ./ml-service
+    container_name: ayulink-ml
+    ports:
+      - "8000:8000"
+    environment:
+      # Use internal Docker routing for the host, but grab credentials from your .env
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+    container_name: ayulink-server
+    ports:
+      - "5002:5002"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - PORT=5002
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+    container_name: ayulink-client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+      - ml-service
+    restart: unless-stopped
 
 volumes:
   pgdata:
