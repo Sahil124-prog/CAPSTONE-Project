@@ -38,10 +38,9 @@ export default function Dashboard() {
     if (!searchTerm.trim()) return;
 
     setLoading(true);
-    setSearched(true); // Tell the UI to show results
+    setSearched(true);
 
     try {
-      // Fetch directly from the Python backend
       const response = await fetch("http://127.0.0.1:8000/api/map", {
         method: "POST",
         headers: {
@@ -49,7 +48,7 @@ export default function Dashboard() {
         },
         body: JSON.stringify({
           term: searchTerm,
-          tradition: tradition, // Fixed variable name
+          tradition: tradition,
         }),
       });
 
@@ -68,7 +67,7 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          namaste_term: searchTerm, // Fixed variable name
+          namaste_term: searchTerm,
           icd11_code: result.code,
           icd11_term: result.term,
           tradition: tradition,
@@ -92,12 +91,11 @@ export default function Dashboard() {
     return "bg-rose-50 text-rose-700 border-rose-200";
   };
 
-  // Prevent rendering until auth is checked
   if (!userRole) return null;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-8 mt-4 md:mt-12">
+      <div className="max-w-6xl mx-auto space-y-8 mt-4 md:mt-12">
         {/* Header */}
         <header className="space-y-4">
           <div className="flex justify-between items-start">
@@ -105,7 +103,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold uppercase tracking-wide">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                  Phase 2 ML Active
+                  Phase 11 Crosswalk Active
                 </div>
                 {userRole === "Admin" && (
                   <Link
@@ -162,9 +160,9 @@ export default function Dashboard() {
               </svg>
               <input
                 type="text"
-                value={searchTerm} // Wired up to the correct state
+                value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search NAMASTE term (e.g., vatavyadhi)..."
+                placeholder="Search NAMASTE term (e.g., jwara, vata)..."
                 className="w-full bg-transparent border-none px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 text-lg font-medium"
               />
             </div>
@@ -217,7 +215,7 @@ export default function Dashboard() {
               </h3>
               <p className="text-slate-500 max-w-sm font-medium">
                 Enter a NAMASTE clinical term to view semantically mapped WHO
-                ICD-11 codes.
+                ICD-11 codes and ICD-10 crosswalks.
               </p>
             </div>
           )}
@@ -226,7 +224,8 @@ export default function Dashboard() {
             <div className="flex-1 flex flex-col">
               <div className="hidden md:grid grid-cols-12 gap-4 px-8 py-4 bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <div className="col-span-2">TM2 Code</div>
-                <div className="col-span-5">Mapped Term</div>
+                <div className="col-span-2">ICD-10 Crosswalk</div>
+                <div className="col-span-3">Mapped Term</div>
                 <div className="col-span-2 text-center">Confidence Score</div>
                 <div className="col-span-3 text-right">Expert Action</div>
               </div>
@@ -245,7 +244,18 @@ export default function Dashboard() {
                           {r.code}
                         </span>
                       </div>
-                      <div className="col-span-1 md:col-span-5 text-slate-800 font-semibold text-base">
+                      <div className="col-span-1 md:col-span-2">
+                        {r.icd10_code !== "N/A" ? (
+                          <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md">
+                            {r.icd10_code}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-400 italic">
+                            No Map
+                          </span>
+                        )}
+                      </div>
+                      <div className="col-span-1 md:col-span-3 text-slate-800 font-semibold text-base truncate">
                         {r.term}
                       </div>
                       <div className="col-span-1 md:col-span-2 flex justify-start md:justify-center">

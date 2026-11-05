@@ -13,16 +13,13 @@ def get_db_connection():
     )
 
 def search_similar_icd11(query_term: str, tradition: str = "Ayurveda", top_k: int = 5):
-    """
-    Vector search integrated with Phase 8 Multi-Signal Patent Formula.
-    """
     query_vector = generate_embedding(query_term)
     
     conn = get_db_connection()
     cur = conn.cursor()
     
     try:
-        # Fetch top 15 by raw vector distance first, so we have a pool to re-score
+        # Added LEFT JOIN to fetch the ICD-10 crosswalk code
         sql = """
             WITH rejected_codes AS (
                 SELECT icd11_code FROM mapping_reviews 
@@ -34,25 +31,24 @@ def search_similar_icd11(query_term: str, tradition: str = "Ayurveda", top_k: in
                 JOIN terminology_releases r ON c.release_id = r.id
                 WHERE r.system = 'ICD11_TM2'
             )
-            SELECT code, term, 1 - (embedding <=> %s::vector) AS semantic_similarity 
-            FROM icd_targets
-            WHERE code NOT IN (SELECT icd11_code FROM rejected_codes)
-            ORDER BY embedding <=> %s::vector 
+            SELECT t.code, t.term, 1 - (t.embedding <=> %s::vector) AS semantic_similarity, cw.icd10_code 
+            FROM icd_targets t
+            LEFT JOIN icd_crosswalk cw ON t.code = cw.icd11_code
+            WHERE t.code NOT IN (SELECT icd11_code FROM rejected_codes)
+            ORDER BY t.embedding <=> %s::vector 
             LIMIT 15;
         """
         
         cur.execute(sql, (query_term, str(query_vector), str(query_vector)))
         results = cur.fetchall()
         
-        # Apply the R = f(S, A, M, C) formula to each result
         scored_candidates = []
         for row in results:
             code = row[0]
             target_term = row[1]
             raw_semantic_score = row[2]
+            icd10_crosswalk = row[3] if row[3] else "N/A" # Default if no ICD-10 mapping exists
             
-            # Basic tradition match heuristic (can be expanded based on your clinical data)
-            # Assuming Ayurveda terms often map well to general TM2 patterns
             is_tradition_match = True if tradition != "Unknown" else False
             
             final_score = compute_confidence(
@@ -64,15 +60,13 @@ def search_similar_icd11(query_term: str, tradition: str = "Ayurveda", top_k: in
             
             scored_candidates.append({
                 "code": code,
+                "icd10_code": icd10_crosswalk,
                 "term": target_term,
                 "confidence": final_score,
-                "raw_semantic": round(raw_semantic_score, 4) # Kept for debugging
+                "raw_semantic": round(raw_semantic_score, 4)
             })
             
-        # Re-sort the candidates based on the new composite formula score
         scored_candidates.sort(key=lambda x: x["confidence"], reverse=True)
-        
-        # Return only the top K requested by the user
         return scored_candidates[:top_k]
         
     finally:
